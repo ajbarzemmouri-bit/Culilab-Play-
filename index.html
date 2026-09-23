@@ -112,11 +112,20 @@ button{font-family:inherit;cursor:pointer}
 .tierBlock{margin-bottom:14px}
 .tierHead{display:flex;align-items:center;gap:8px;font-weight:900;font-size:13px;color:#6b4a22;margin-bottom:8px}
 .tierHead .em{font-size:20px}
-.recipeRow{background:#fff;border-radius:13px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px;box-shadow:0 1px 4px #0000000d}
+.recipeRow{background:#fff;border-radius:13px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;box-shadow:0 1px 4px #0000000d}
 .recipeRow .em{font-size:22px;width:28px;text-align:center}
 .recipeRow b{font-size:13px;display:block}
 .recipeRow small{color:#8b765e;font-size:11px}
 .recipeRow.locked{opacity:.55}
+.realNote{font-size:11px;color:#8b765e;margin-top:4px;line-height:1.4;font-style:italic}
+.fullRecipe{margin-top:6px}
+.fullRecipe summary{font-size:11.5px;font-weight:900;color:#a8650f;cursor:pointer;list-style:none}
+.fullRecipe summary::-webkit-details-marker{display:none}
+.fullRecipeBody{margin-top:8px;padding:10px;background:#fbf6ec;border-radius:10px;font-size:12px;line-height:1.5;color:#5a4630}
+.fullRecipeBody .servings{font-weight:800;color:#8b5a17;margin-bottom:6px;font-size:11.5px}
+.fullRecipeBody b{display:block;font-size:11px;letter-spacing:.5px;color:#8b765e;margin:6px 0 2px}
+.fullRecipeBody ul,.fullRecipeBody ol{margin:0;padding-left:18px}
+.fullRecipeBody li{margin-bottom:3px}
 
 .badgeGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .badge{background:#fff;border-radius:15px;padding:14px 10px;text-align:center;box-shadow:0 2px 8px #00000010}
@@ -127,6 +136,7 @@ button{font-family:inherit;cursor:pointer}
 
 .center{text-align:center}
 .muted{color:#786b5d;font-size:12.5px}
+.copyright{text-align:center;font-size:12.5px;font-weight:800;color:#8b765e;margin-top:18px;padding-top:14px;border-top:1px solid #e2d2bd}
 .hidden{display:none!important}
 .tipbtn{position:relative}
 </style>
@@ -450,6 +460,7 @@ const UI = {
   btnResetHome:{nl:'🔄 Opnieuw beginnen', en:'🔄 Start Over'},
   confirmReset:{nl:'Weet je zeker dat je opnieuw wilt beginnen? Al je voortgang gaat verloren.',
                 en:'Are you sure you want to start over? All your progress will be lost.'},
+  allRightsReserved:{nl:'Alle rechten voorbehouden.', en:'All rights reserved.'},
 
   roundLabel:{nl:'RONDE {n} / {total}', en:'ROUND {n} / {total}'},
   tipButton:{nl:'Tip {left}/3', en:'Hint {left}/3'},
@@ -526,9 +537,571 @@ const UI = {
   toDiscover:{nl:'Nog te ontdekken', en:'Yet to discover'},
   signatureDish:{nl:'⭐ Signatuurgerecht', en:'⭐ Signature Dish'},
   ingredientsCount:{nl:'{n} ingrediënten', en:'{n} ingredients'},
+  inReality:{nl:'👨‍🍳 In het echt:', en:'👨‍🍳 In reality:'},
+  viewFullRecipe:{nl:'📋 Volledig recept →', en:'📋 Full recipe →'},
+  ingredientsLabel:{nl:'Ingrediënten', en:'Ingredients'},
+  stepsLabel:{nl:'Bereiding', en:'Preparation'},
 
   achieved:{nl:'Behaald', en:'Achieved'},
   notYetAchieved:{nl:'Nog te behalen', en:'Not yet achieved'},
+};
+
+/* ==========================================================
+   1c) "IN HET ECHT" — korte, feitelijke notities per recept over hoe
+       het er in een echte keuken uitziet (techniek/tijdsindicatie).
+       Bij de signatuurgerechten (⭐/👑) staat eerlijk vermeld dat het
+       eigen samenstellingen zijn, geïnspireerd op echte technieken —
+       geen bestaand, met naam bekend gerecht.
+   ========================================================== */
+const REAL_NOTES = {
+  oil_vinegar: {nl:'Klassieke basisverhouding: circa 3 delen olie op 1 deel azijn, kort kloppen tot het mengt.',
+                en:'Classic base ratio: roughly 3 parts oil to 1 part vinegar, whisk briefly until combined.'},
+  lemon_oil: {nl:'Zelfde principe als vinaigrette, met citroensap als zuur — populair bij salades met vis.',
+              en:'Same principle as vinaigrette, using lemon juice as the acid — popular with fish salads.'},
+  mustard_vinegar: {nl:'Basis voor veel dressings: mosterd helpt de olie er later beter in te binden.',
+                    en:'Base for many dressings: mustard helps bind the oil in more smoothly later on.'},
+  egg_lemon_mustard_oil: {nl:'De klassieke mayonaise-techniek: olie in een flinke straal dun bij het geklopte ei-mosterdmengsel gieten.',
+                           en:'The classic mayonnaise technique: pour the oil in a thin stream into the whisked egg-mustard mixture.'},
+  egg_mustard_oil_vinegar: {nl:'Zelfde emulsietechniek als mayonaise, met azijn als zuur in plaats van citroen.',
+                             en:'Same emulsion technique as mayonnaise, using vinegar as the acid instead of lemon.'},
+  garlic_oil: {nl:'Let op in het echt: rauwe knoflook koud in olie is een voedselveiligheidsrisico (botulisme) — hoort verwarmd of gekoeld gebruikt te worden.',
+               en:'Real-world note: raw garlic cold in oil is a food-safety risk (botulism) — should be warmed or refrigerated in practice.'},
+  garlic_lemon_oil: {nl:'Populaire smaakolie bij gegrilde groenten; citroen erdoor houdt het fris.',
+                      en:'Popular flavored oil for grilled vegetables; the lemon keeps it fresh.'},
+  garlic_lemon_mustard_oil: {nl:'Een stevige dressing, vaak gebruikt bij stevige salades of als marinade.',
+                              en:'A robust dressing, often used on hearty salads or as a marinade.'},
+  oil_parsley: {nl:'Klassieke kruidenolie: peterselie kort blancheren en mixen geeft de helderste groene kleur.',
+                en:'Classic herb oil: briefly blanching the parsley before blending gives the brightest green color.'},
+  lemon_oil_parsley: {nl:'Lichte, frisse olie — veel gebruikt over gegrilde vis of groenten.',
+                       en:'A light, fresh oil — often used over grilled fish or vegetables.'},
+  garlic_oil_parsley: {nl:'Basis van de klassieke Italiaanse "aglio e olio"-smaakcombinatie.',
+                        en:'Base of the classic Italian "aglio e olio" flavor combination.'},
+  basil_oil: {nl:'Basis voor een lichte pesto-achtige olie; basilicum kort blancheren voorkomt verkleuring.',
+              en:'Base for a light pesto-style oil; briefly blanching the basil prevents browning.'},
+  basil_lemon_oil: {nl:'Zomerse combinatie, vaak gebruikt over tomatensalades.',
+                     en:'A summery combination, often used over tomato salads.'},
+  basil_garlic_oil: {nl:'Bijna de basis van pesto — mist alleen nog pijnboompitten en kaas.',
+                      en:'Almost the base of pesto — just missing pine nuts and cheese.'},
+  mint_oil: {nl:'Fris, vaak gebruikt bij lamsgerechten of in Midden-Oosterse keukens.',
+             en:'Fresh and bright, often used with lamb dishes or in Middle Eastern cooking.'},
+  lemon_mint_oil: {nl:'Verfrissende combinatie, populair bij zomerse salades.',
+                    en:'A refreshing combination, popular in summer salads.'},
+  lemon_mint: {nl:'Simpele, frisse basis — ook bekend uit koude yoghurtsauzen en drankjes.',
+               en:'A simple, fresh base — also familiar from cold yogurt sauces and drinks.'},
+  honey_mustard: {nl:'Klassieke honing-mosterdsaus: zachtjes verwarmen laat de smaken versmelten zonder te karameliseren.',
+                   en:'Classic honey-mustard sauce: gentle warming lets the flavors blend without caramelizing.'},
+  honey_lemon_oil: {nl:'Lichte, glanzende dressing — vaak gebruikt over geroosterde groenten.',
+                     en:'A light, glossy dressing — often used over roasted vegetables.'},
+  garlic_honey_oil: {nl:'Populaire glaze-basis voor geroosterde groenten of gebraden vlees.',
+                      en:'A popular glaze base for roasted vegetables or roasted meats.'},
+  garlic_honey_lemon_mustard: {nl:'Eigen samenstelling, geïnspireerd op klassieke honing-mosterd-glazes — geen bestaand naamrecept.',
+                                en:'Original creation, inspired by classic honey-mustard glazes — not an existing named dish.'},
+  cream_mustard: {nl:'Klassieke Franse combinatie, vaak bij varkenshaas of kip geserveerd.',
+                   en:'A classic French combination, often served with pork tenderloin or chicken.'},
+  cream_lemon: {nl:'Lichte, frisse saus die goed past bij vis.',
+                en:'A light, fresh sauce that pairs well with fish.'},
+  cream_garlic_parsley: {nl:'Basis voor veel Franse roomsauzen bij vlees en pasta.',
+                          en:'Base for many French cream sauces served with meat and pasta.'},
+  cream_garlic_honey_mustard: {nl:'Eigen samenstelling, geïnspireerd op Franse roomsaustechnieken — geen bestaand naamrecept.',
+                                en:'Original creation, inspired by French cream sauce technique — not an existing named dish.'},
+  chili_oil: {nl:'Klassieke chiliolie: chili zachtjes laten trekken in olie, niet laten bakken.',
+              en:'Classic chili oil: gently steep the chili in oil, don\'t let it fry.'},
+  chili_honey_lemon: {nl:'Zoetzure combinatie die veel voorkomt in Zuidoost-Aziatische dipsauzen.',
+                       en:'A sweet-sour combination common in Southeast Asian dipping sauces.'},
+  chili_garlic_oil: {nl:'Basis van veel chili-knoflookpasta\'s zoals sambal-achtige pasta\'s.',
+                      en:'Base of many chili-garlic pastes, similar to sambal-style pastes.'},
+  chili_garlic_honey_lemon_oil: {nl:'Eigen samenstelling, geïnspireerd op zoet-pittige glazes — geen bestaand naamrecept.',
+                                  en:'Original creation, inspired by sweet-spicy glazes — not an existing named dish.'},
+  ginger_honey_lemon: {nl:'Populaire combinatie in Aziatische keukens, ook bekend uit warme thee.',
+                        en:'A popular combination in Asian cuisine, also familiar from hot tea.'},
+  garlic_ginger_oil: {nl:'Basis van talloze Aziatische roerbakgerechten.',
+                       en:'Base of countless Asian stir-fry dishes.'},
+  ginger_lemon_mint: {nl:'Frisse, verkoelende combinatie — vaak in drankjes of lichte sauzen.',
+                       en:'A fresh, cooling combination — often used in drinks or light sauces.'},
+  chili_garlic_ginger_honey_lemon: {nl:'Eigen samenstelling, geïnspireerd op Aziatische smaakbouw — geen bestaand naamrecept.',
+                                     en:'Original creation, inspired by Asian flavor-building — not an existing named dish.'},
+  garlic_oil_tomato: {nl:'Basis van de Italiaanse "aglio, olio e pomodoro"-stijl.',
+                       en:'Base of the Italian "aglio, olio e pomodoro" style.'},
+  basil_oil_tomato: {nl:'Klassieke Italiaanse zomercombinatie, de basis van veel simpele pastasauzen.',
+                      en:'A classic Italian summer combination, the base of many simple pasta sauces.'},
+  chili_garlic_tomato: {nl:'Basis van een arrabbiata-achtige pittige tomatensaus.',
+                         en:'Base of an arrabbiata-style spicy tomato sauce.'},
+  basil_cream_garlic_tomato: {nl:'Eigen samenstelling, geïnspireerd op Italiaanse roomtomatensauzen — geen bestaand naamrecept.',
+                               en:'Original creation, inspired by Italian tomato cream sauces — not an existing named dish.'},
+  butter_lemon: {nl:'Klassieke botersaus-basis (beurre blanc-achtig), veel gebruikt bij vis.',
+                 en:'Classic butter-sauce base (beurre blanc-style), often used with fish.'},
+  butter_garlic_parsley: {nl:'Dit is letterlijk de klassieke Franse "maître d\'hôtel"-kruidenboter.',
+                           en:'This is literally the classic French "maître d\'hôtel" herb butter.'},
+  butter_honey_mustard: {nl:'Populaire zoet-pittige botersaus bij geroosterde groenten of gevogelte.',
+                          en:'A popular sweet-tangy butter sauce for roasted vegetables or poultry.'},
+  butter_chili_garlic_lemon_parsley: {nl:'Eigen samenstelling, geïnspireerd op klassieke kruidenboter — geen bestaand naamrecept.',
+                                       en:'Original creation, inspired by classic herb butter — not an existing named dish.'},
+  ginger_soy: {nl:'Basis van talloze Aziatische dipsauzen en marinades.',
+               en:'Base of countless Asian dipping sauces and marinades.'},
+  garlic_honey_soy: {nl:'Dit is in essentie hoe een teriyakisaus wordt opgebouwd: soja, zoetstof, knoflook, zachtjes inkoken.',
+                      en:'This is essentially how teriyaki sauce is built: soy, sweetener, garlic, gently reduced.'},
+  chili_lemon_soy: {nl:'Klassieke basis voor een Zuidoost-Aziatische dipsaus, zoals bij loempia\'s.',
+                     en:'A classic base for a Southeast Asian dipping sauce, like with spring rolls.'},
+  chili_garlic_ginger_honey_soy: {nl:'Eigen samenstelling, geïnspireerd op Aziatische sauzen — geen bestaand naamrecept.',
+                                   en:'Original creation, inspired by Asian sauces — not an existing named dish.'},
+  garlic_lemon_yogurt: {nl:'Bijna letterlijk tzatziki, alleen zonder de geraspte komkommer.',
+                         en:'Almost literally tzatziki, just missing the grated cucumber.'},
+  lemon_mint_yogurt: {nl:'Populaire koude sausbasis in Midden-Oosterse en Griekse keukens.',
+                       en:'A popular cold sauce base in Middle Eastern and Greek cuisine.'},
+  honey_yogurt: {nl:'Simpele, klassieke combinatie — vaak als dessert- of ontbijtdip.',
+                 en:'A simple, classic combination — often used as a dessert or breakfast dip.'},
+  garlic_lemon_mint_parsley_yogurt: {nl:'Eigen samenstelling, geïnspireerd op Griekse/Midden-Oosterse yoghurtsauzen — geen bestaand naamrecept.',
+                                      en:'Original creation, inspired by Greek/Middle Eastern yogurt sauces — not an existing named dish.'},
+  capers_lemon_oil: {nl:'Klassieke combinatie bij gerookte vis of carpaccio.',
+                      en:'A classic combination with smoked fish or carpaccio.'},
+  butter_capers_lemon: {nl:'Dit is in essentie een piccata-saus: kappertjes, boter en citroen zachtjes samen laten smelten.',
+                         en:'This is essentially a piccata sauce: capers, butter and lemon gently melted together.'},
+  capers_garlic_oil_parsley: {nl:'Mediterrane kruidenolie, vaak gebruikt bij gegrilde vis.',
+                               en:'A Mediterranean herb oil, often used with grilled fish.'},
+  butter_capers_garlic_lemon_parsley: {nl:'Eigen samenstelling, geïnspireerd op klassieke Mediterrane botersauzen — geen bestaand naamrecept.',
+                                        en:'Original creation, inspired by classic Mediterranean butter sauces — not an existing named dish.'},
+  cumin_garlic_oil: {nl:'Basis van veel Mexicaanse en Noord-Afrikaanse kruidenolies.',
+                      en:'Base of many Mexican and North African spiced oils.'},
+  cumin_lemon_oil: {nl:'Frisse, aardse combinatie — vaak gebruikt bij gegrilde groenten.',
+                     en:'A fresh, earthy combination — often used with grilled vegetables.'},
+  chili_cumin_garlic: {nl:'Basis van veel Mexicaanse kruidenpasta\'s en adobo-achtige marinades.',
+                        en:'Base of many Mexican spice pastes and adobo-style marinades.'},
+  chili_cumin_garlic_lemon_oil: {nl:'Eigen samenstelling, geïnspireerd op Mexicaanse salsa-technieken — geen bestaand naamrecept.',
+                                  en:'Original creation, inspired by Mexican salsa technique — not an existing named dish.'},
+  ginger_oil_turmeric: {nl:'Dit is in essentie een Indiase "tadka": kruiden kort in hete olie laten sissen om smaak vrij te maken.',
+                         en:'This is essentially an Indian "tadka": briefly sizzling spices in hot oil to release flavor.'},
+  honey_lemon_turmeric: {nl:'Populaire "gouden" drankjes-basis, ook bekend als kurkuma-limonade.',
+                          en:'A popular "golden" drink base, also known as turmeric lemonade.'},
+  garlic_turmeric_yogurt: {nl:'Basis van veel Indiase yoghurtmarinades (vergelijkbaar met een eenvoudige tandoori-marinade).',
+                            en:'Base of many Indian yogurt marinades (similar to a simple tandoori marinade).'},
+  chili_garlic_ginger_turmeric_yogurt: {nl:'Eigen samenstelling, geïnspireerd op Indiase kruidentechnieken — geen bestaand naamrecept.',
+                                         en:'Original creation, inspired by Indian spice technique — not an existing named dish.'},
+};
+
+/* ==========================================================
+   1d) VOLLEDIGE RECEPTEN (test-set)
+   Uitklapbaar onder de korte "in het echt"-notitie. Voorlopig
+   maar 4 recepten ingevuld als proef — pas na akkoord uitbreiden
+   naar alle 61. Ontbreekt een id hier, dan verschijnt er gewoon
+   geen uitklap-optie (geen "binnenkort"-rommel).
+   ========================================================== */
+const FULL_RECIPES = {
+  oil_vinegar: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'75 ml olijfolie', en:'75 ml olive oil'},
+      {nl:'25 ml wijnazijn', en:'25 ml wine vinegar'},
+      {nl:'Snufje zout en versgemalen peper', en:'Pinch of salt and freshly ground pepper'},
+    ],
+    steps:[
+      {nl:'Doe de azijn in een kom en breng op smaak met zout en peper.', en:'Put the vinegar in a bowl and season with salt and pepper.'},
+      {nl:'Klop de olie er in een dun straaltje door met een garde, tot het mengt.', en:'Whisk in the oil in a thin stream until combined.'},
+      {nl:'Proef en breng eventueel verder op smaak. Klop vlak vóór gebruik nog even door — het scheidt na een tijdje weer.', en:'Taste and adjust if needed. Whisk again just before serving — it separates over time.'},
+    ],
+  },
+  egg_lemon_mustard_oil: {
+    servings:{nl:'Voor 2 personen (± 200 ml)', en:'Serves 2 (± 200 ml)'},
+    ingredients:[
+      {nl:'1 eidooier (op kamertemperatuur)', en:'1 egg yolk (room temperature)'},
+      {nl:'1 theelepel mosterd', en:'1 teaspoon mustard'},
+      {nl:'200 ml neutrale olie (bv. zonnebloemolie)', en:'200 ml neutral oil (e.g. sunflower oil)'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Klop de eidooier met de mosterd en het zout in een kom tot het mengsel lichter van kleur wordt.', en:'Whisk the egg yolk with the mustard and salt in a bowl until the mixture lightens in color.'},
+      {nl:'Giet de olie in een heel dun straaltje erbij, continu kloppend — dit is de belangrijkste stap. Te snel gieten breekt de emulsie.', en:'Pour in the oil in a very thin, steady stream while whisking constantly — this is the key step. Pouring too fast will break the emulsion.'},
+      {nl:'Als het mengsel dik en glanzend wordt, klop je het citroensap erdoor.', en:'Once the mixture is thick and glossy, whisk in the lemon juice.'},
+      {nl:'Proef en breng verder op smaak met zout. Bewaar gekoeld en gebruik binnen een paar dagen.', en:'Taste and season further with salt. Store chilled and use within a few days.'},
+    ],
+  },
+  butter_garlic_parsley: {
+    servings:{nl:'Voor 2 personen (± 100 g)', en:'Serves 2 (± 100 g)'},
+    ingredients:[
+      {nl:'100 g roomboter, zacht op kamertemperatuur', en:'100 g butter, softened at room temperature'},
+      {nl:'2 tenen knoflook, fijngehakt of geperst', en:'2 garlic cloves, finely chopped or pressed'},
+      {nl:'2 eetlepels verse peterselie, fijngehakt', en:'2 tablespoons fresh parsley, finely chopped'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Meng de zachte boter met knoflook, peterselie en zout tot een gladde massa.', en:'Mix the softened butter with garlic, parsley and salt until smooth.'},
+      {nl:'Rol de boter in plasticfolie tot een rol en draai de uiteinden dicht.', en:'Roll the butter in plastic wrap into a log and twist the ends closed.'},
+      {nl:'Laat minstens 30 minuten opstijven in de koelkast voordat je het in plakjes snijdt.', en:'Chill for at least 30 minutes before slicing into rounds.'},
+      {nl:'Leg een plakje op warm gegrild vlees, vis of groenten vlak vóór het serveren.', en:'Place a slice on warm grilled meat, fish or vegetables just before serving.'},
+    ],
+  },
+  chili_cumin_garlic_lemon_oil: {
+    servings:{nl:'Voor 2 personen (± 150 ml) — eigen samenstelling, geen traditioneel recept', en:'Serves 2 (± 150 ml) — original creation, not a traditional recipe'},
+    ingredients:[
+      {nl:'3 eetlepels olie', en:'3 tablespoons oil'},
+      {nl:'1 rode chilipeper, fijngesneden (zaadjes eruit voor minder pit)', en:'1 red chili, finely sliced (remove seeds for less heat)'},
+      {nl:'1 theelepel komijnzaad of gemalen komijn', en:'1 teaspoon cumin seeds or ground cumin'},
+      {nl:'2 tenen knoflook, fijngehakt', en:'2 garlic cloves, finely chopped'},
+      {nl:'Sap van 1 citroen', en:'Juice of 1 lemon'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Verwarm de olie zachtjes in een pannetje op laag vuur.', en:'Gently warm the oil in a small pan over low heat.'},
+      {nl:'Voeg komijn en knoflook toe en laat 1-2 minuten zachtjes sissen — niet laten kleuren of verbranden.', en:'Add the cumin and garlic and let sizzle gently for 1-2 minutes — don\'t let it brown or burn.'},
+      {nl:'Voeg de chili toe en haal na 30 seconden van het vuur.', en:'Add the chili and remove from heat after 30 seconds.'},
+      {nl:'Roer het citroensap en zout erdoor zodra het iets is afgekoeld.', en:'Stir in the lemon juice and salt once slightly cooled.'},
+    ],
+  },
+
+  /* --- Ronde 1: Basisronde (resterende 2) --- */
+  lemon_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'75 ml olijfolie', en:'75 ml olive oil'},
+      {nl:'25 ml citroensap (± 1 citroen)', en:'25 ml lemon juice (± 1 lemon)'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Pers de citroen en doe het sap in een kom met een snufje zout.', en:'Squeeze the lemon and put the juice in a bowl with a pinch of salt.'},
+      {nl:'Klop de olie er in een dun straaltje door tot het mengt.', en:'Whisk in the oil in a thin stream until combined.'},
+      {nl:'Proef en breng eventueel verder op smaak.', en:'Taste and adjust if needed.'},
+    ],
+  },
+  mustard_vinegar: {
+    servings:{nl:'Voor 2 personen (± 75 ml, basis voor verdere dressings)', en:'Serves 2 (± 75 ml, base for further dressings)'},
+    ingredients:[
+      {nl:'2 eetlepels mosterd', en:'2 tablespoons mustard'},
+      {nl:'2 eetlepels wijnazijn', en:'2 tablespoons wine vinegar'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Doe mosterd en azijn samen in een kommetje.', en:'Put the mustard and vinegar together in a small bowl.'},
+      {nl:'Klop glad met een garde of vork.', en:'Whisk smooth with a whisk or fork.'},
+      {nl:'Breng op smaak met een snufje zout. Gebruik als basis voor een dressing (met olie erbij).', en:'Season with a pinch of salt. Use as a base for a dressing (add oil to taste).'},
+    ],
+  },
+
+  /* --- Ronde 2: Ei (resterend 1) --- */
+  egg_mustard_oil_vinegar: {
+    servings:{nl:'Voor 2 personen (± 200 ml)', en:'Serves 2 (± 200 ml)'},
+    ingredients:[
+      {nl:'1 eidooier (op kamertemperatuur)', en:'1 egg yolk (room temperature)'},
+      {nl:'1 theelepel mosterd', en:'1 teaspoon mustard'},
+      {nl:'200 ml neutrale olie', en:'200 ml neutral oil'},
+      {nl:'1 theelepel wijnazijn', en:'1 teaspoon wine vinegar'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Klop de eidooier met de mosterd en het zout tot het lichter van kleur wordt.', en:'Whisk the egg yolk with the mustard and salt until it lightens in color.'},
+      {nl:'Giet de olie er in een dun straaltje bij, continu kloppend.', en:'Pour in the oil in a thin stream while whisking constantly.'},
+      {nl:'Klop de azijn erdoor zodra het mengsel dik en glanzend is.', en:'Whisk in the vinegar once the mixture is thick and glossy.'},
+      {nl:'Proef en breng verder op smaak. Bewaar gekoeld.', en:'Taste and season further. Store chilled.'},
+    ],
+  },
+
+  /* --- Ronde 3: Knoflook --- */
+  garlic_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'100 ml olie', en:'100 ml oil'},
+      {nl:'2 tenen knoflook, in dunne plakjes', en:'2 garlic cloves, thinly sliced'},
+    ],
+    steps:[
+      {nl:'Verwarm de olie zachtjes in een pannetje op laag vuur.', en:'Gently warm the oil in a small pan over low heat.'},
+      {nl:'Voeg de knoflook toe en laat 2-3 minuten heel zachtjes trekken — niet laten kleuren.', en:'Add the garlic and let it steep very gently for 2-3 minutes — don\'t let it brown.'},
+      {nl:'Laat afkoelen en zeef eventueel de knoflookstukjes eruit. Gebruik dezelfde dag of bewaar gekoeld.', en:'Let cool and strain out the garlic pieces if desired. Use the same day or store chilled.'},
+    ],
+  },
+  garlic_lemon_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'100 ml olie', en:'100 ml oil'},
+      {nl:'2 tenen knoflook, in dunne plakjes', en:'2 garlic cloves, thinly sliced'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+    ],
+    steps:[
+      {nl:'Verwarm de olie zachtjes en laat de knoflook er 2-3 minuten heel zachtjes in trekken.', en:'Gently warm the oil and let the garlic steep in it for 2-3 minutes.'},
+      {nl:'Haal van het vuur en roer het citroensap erdoor zodra het iets is afgekoeld.', en:'Remove from heat and stir in the lemon juice once slightly cooled.'},
+    ],
+  },
+  garlic_lemon_mustard_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'75 ml olie (bij voorkeur al getrokken met knoflook)', en:'75 ml oil (ideally already infused with garlic)'},
+      {nl:'1 teen knoflook, fijngeperst', en:'1 garlic clove, pressed'},
+      {nl:'1 theelepel mosterd', en:'1 teaspoon mustard'},
+      {nl:'25 ml citroensap', en:'25 ml lemon juice'},
+    ],
+    steps:[
+      {nl:'Klop de mosterd, knoflook en citroensap samen in een kom.', en:'Whisk the mustard, garlic and lemon juice together in a bowl.'},
+      {nl:'Klop de olie er in een dun straaltje door tot het een dressing wordt.', en:'Whisk in the oil in a thin stream until it becomes a dressing.'},
+    ],
+  },
+
+  /* --- Ronde 4: Peterselie --- */
+  oil_parsley: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'20 g verse peterselie', en:'20 g fresh parsley'},
+      {nl:'100 ml olie', en:'100 ml oil'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Hak de peterselie grof.', en:'Roughly chop the parsley.'},
+      {nl:'Mix de peterselie samen met de olie en het zout fijn (staafmixer of keukenmachine).', en:'Blend the parsley together with the oil and salt (immersion blender or food processor).'},
+      {nl:'Zeef eventueel voor een helderdere olie. Bewaar gekoeld.', en:'Strain if you want a clearer oil. Store chilled.'},
+    ],
+  },
+  lemon_oil_parsley: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'20 g verse peterselie', en:'20 g fresh parsley'},
+      {nl:'90 ml olie', en:'90 ml oil'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+    ],
+    steps:[
+      {nl:'Mix de peterselie met de olie fijn tot een groene olie.', en:'Blend the parsley with the oil until you get a green oil.'},
+      {nl:'Roer het citroensap erdoor. Zeef eventueel.', en:'Stir in the lemon juice. Strain if desired.'},
+    ],
+  },
+  garlic_oil_parsley: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'20 g verse peterselie', en:'20 g fresh parsley'},
+      {nl:'1 teen knoflook', en:'1 garlic clove'},
+      {nl:'90 ml olie', en:'90 ml oil'},
+    ],
+    steps:[
+      {nl:'Mix peterselie, knoflook en olie samen fijn tot een gladde, aromatische olie.', en:'Blend the parsley, garlic and oil together into a smooth, aromatic oil.'},
+      {nl:'Zeef eventueel voor een helderdere olie. Bewaar gekoeld.', en:'Strain if you want a clearer oil. Store chilled.'},
+    ],
+  },
+
+  /* --- Ronde 5: Basilicum --- */
+  basil_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'20 g verse basilicum', en:'20 g fresh basil'},
+      {nl:'100 ml olie', en:'100 ml oil'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Blancheer de basilicum kort (5 seconden) in kokend water en spoel meteen koud — dit houdt de kleur helder groen.', en:'Briefly blanch the basil (5 seconds) in boiling water and rinse immediately with cold water — this keeps the color bright green.'},
+      {nl:'Mix de basilicum met de olie en het zout fijn tot een gladde olie.', en:'Blend the basil with the oil and salt into a smooth oil.'},
+    ],
+  },
+  basil_lemon_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'20 g verse basilicum', en:'20 g fresh basil'},
+      {nl:'90 ml olie', en:'90 ml oil'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+    ],
+    steps:[
+      {nl:'Mix de basilicum met de olie fijn tot een gladde olie.', en:'Blend the basil with the oil into a smooth oil.'},
+      {nl:'Roer het citroensap erdoor.', en:'Stir in the lemon juice.'},
+    ],
+  },
+  basil_garlic_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'20 g verse basilicum', en:'20 g fresh basil'},
+      {nl:'1 teen knoflook', en:'1 garlic clove'},
+      {nl:'90 ml olie', en:'90 ml oil'},
+    ],
+    steps:[
+      {nl:'Mix basilicum, knoflook en olie samen fijn tot een aromatische olie.', en:'Blend the basil, garlic and oil together into an aromatic oil.'},
+      {nl:'Zeef eventueel voor een helderdere olie.', en:'Strain if you want a clearer oil.'},
+    ],
+  },
+
+  /* --- Ronde 6: Munt --- */
+  mint_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'15 g verse munt', en:'15 g fresh mint'},
+      {nl:'100 ml olie', en:'100 ml oil'},
+    ],
+    steps:[
+      {nl:'Blancheer de munt kort in kokend water en spoel koud voor een heldere kleur.', en:'Briefly blanch the mint in boiling water and rinse cold for a bright color.'},
+      {nl:'Mix met de olie fijn tot een gladde muntolie.', en:'Blend with the oil into a smooth mint oil.'},
+    ],
+  },
+  lemon_mint_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'15 g verse munt', en:'15 g fresh mint'},
+      {nl:'90 ml olie', en:'90 ml oil'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+    ],
+    steps:[
+      {nl:'Mix de munt met de olie fijn.', en:'Blend the mint with the oil.'},
+      {nl:'Roer het citroensap erdoor.', en:'Stir in the lemon juice.'},
+    ],
+  },
+  lemon_mint: {
+    servings:{nl:'Voor 2 personen (± 75 ml, basis)', en:'Serves 2 (± 75 ml base)'},
+    ingredients:[
+      {nl:'15 g verse munt, fijngehakt', en:'15 g fresh mint, finely chopped'},
+      {nl:'50 ml citroensap', en:'50 ml lemon juice'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Meng de fijngehakte munt met het citroensap.', en:'Mix the finely chopped mint with the lemon juice.'},
+      {nl:'Breng op smaak met zout. Gebruik als frisse basis voor een saus of dressing.', en:'Season with salt. Use as a fresh base for a sauce or dressing.'},
+    ],
+  },
+
+  /* --- Ronde 7: Honing --- */
+  honey_mustard: {
+    servings:{nl:'Voor 2 personen (± 75 ml)', en:'Serves 2 (± 75 ml)'},
+    ingredients:[
+      {nl:'2 eetlepels honing', en:'2 tablespoons honey'},
+      {nl:'2 eetlepels mosterd', en:'2 tablespoons mustard'},
+    ],
+    steps:[
+      {nl:'Verwarm de honing zachtjes in een pannetje op laag vuur tot het vloeibaarder wordt.', en:'Gently warm the honey in a small pan over low heat until it loosens.'},
+      {nl:'Haal van het vuur en roer de mosterd erdoor tot een gladde, glanzende dressing.', en:'Remove from heat and stir in the mustard until a smooth, glossy dressing forms.'},
+    ],
+  },
+  honey_lemon_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'2 eetlepels honing', en:'2 tablespoons honey'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+      {nl:'75 ml olie', en:'75 ml oil'},
+    ],
+    steps:[
+      {nl:'Verwarm de honing zachtjes tot het vloeibaar is.', en:'Gently warm the honey until it becomes liquid.'},
+      {nl:'Klop het citroensap en de olie erdoor tot een gladde, glanzende dressing.', en:'Whisk in the lemon juice and oil until a smooth, glossy dressing forms.'},
+    ],
+  },
+  garlic_honey_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'2 eetlepels honing', en:'2 tablespoons honey'},
+      {nl:'1 teen knoflook, fijngehakt', en:'1 garlic clove, finely chopped'},
+      {nl:'75 ml olie', en:'75 ml oil'},
+    ],
+    steps:[
+      {nl:'Verwarm de honing en knoflook samen zachtjes in een pannetje.', en:'Gently warm the honey and garlic together in a small pan.'},
+      {nl:'Roer de olie erdoor tot een glanzende glaze.', en:'Stir in the oil until a glossy glaze forms.'},
+    ],
+  },
+  garlic_honey_lemon_mustard: {
+    servings:{nl:'Voor 2 personen (± 100 ml) — eigen samenstelling, geen traditioneel recept', en:'Serves 2 (± 100 ml) — original creation, not a traditional recipe'},
+    ingredients:[
+      {nl:'2 eetlepels honing', en:'2 tablespoons honey'},
+      {nl:'1 eetlepel mosterd', en:'1 tablespoon mustard'},
+      {nl:'1 teen knoflook, fijngehakt', en:'1 garlic clove, finely chopped'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+    ],
+    steps:[
+      {nl:'Verwarm de honing en knoflook samen zachtjes in een pannetje op laag vuur.', en:'Gently warm the honey and garlic together in a small pan over low heat.'},
+      {nl:'Haal van het vuur en klop de mosterd en het citroensap erdoor.', en:'Remove from heat and whisk in the mustard and lemon juice.'},
+      {nl:'Laat iets afkoelen tot een glanzende, dikkere glaze.', en:'Let cool slightly into a glossy, thicker glaze.'},
+    ],
+  },
+
+  /* --- Ronde 8: Room --- */
+  cream_mustard: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'100 ml (slag)room', en:'100 ml cream'},
+      {nl:'1 eetlepel mosterd', en:'1 tablespoon mustard'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Klop de room los in een kom.', en:'Whisk the cream loosely in a bowl.'},
+      {nl:'Klop de mosterd en het zout erdoor tot een gladde, romige saus.', en:'Whisk in the mustard and salt until a smooth, creamy sauce forms.'},
+    ],
+  },
+  cream_lemon: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'100 ml (slag)room', en:'100 ml cream'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+      {nl:'Snufje zout', en:'Pinch of salt'},
+    ],
+    steps:[
+      {nl:'Klop de room los.', en:'Whisk the cream loosely.'},
+      {nl:'Klop het citroensap en zout erdoor tot een frisse, romige saus.', en:'Whisk in the lemon juice and salt until a fresh, creamy sauce forms.'},
+    ],
+  },
+  cream_garlic_parsley: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'100 ml (slag)room', en:'100 ml cream'},
+      {nl:'1 teen knoflook, fijngeperst', en:'1 garlic clove, pressed'},
+      {nl:'1 eetlepel verse peterselie, fijngehakt', en:'1 tablespoon fresh parsley, finely chopped'},
+    ],
+    steps:[
+      {nl:'Klop de room los in een kom.', en:'Whisk the cream loosely in a bowl.'},
+      {nl:'Meng de knoflook en peterselie erdoor tot een volle kruidenroomsaus.', en:'Mix in the garlic and parsley until a rich herb cream sauce forms.'},
+    ],
+  },
+  cream_garlic_honey_mustard: {
+    servings:{nl:'Voor 2 personen (± 100 ml) — eigen samenstelling, geen traditioneel recept', en:'Serves 2 (± 100 ml) — original creation, not a traditional recipe'},
+    ingredients:[
+      {nl:'100 ml (slag)room', en:'100 ml cream'},
+      {nl:'1 eetlepel honing', en:'1 tablespoon honey'},
+      {nl:'1 theelepel mosterd', en:'1 teaspoon mustard'},
+      {nl:'1 teen knoflook, fijngeperst', en:'1 garlic clove, pressed'},
+    ],
+    steps:[
+      {nl:'Klop de room los in een kom.', en:'Whisk the cream loosely in a bowl.'},
+      {nl:'Meng de honing, mosterd en knoflook er geleidelijk door tot een gladde, volle saus.', en:'Gradually mix in the honey, mustard and garlic until a smooth, rich sauce forms.'},
+      {nl:'Proef en pas de balans van zoet/pittig aan naar smaak.', en:'Taste and adjust the sweet-tangy balance to preference.'},
+    ],
+  },
+
+  /* --- Ronde 9: Chili --- */
+  chili_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'100 ml olie', en:'100 ml oil'},
+      {nl:'1-2 rode chilipepers, fijngesneden', en:'1-2 red chilies, finely sliced'},
+    ],
+    steps:[
+      {nl:'Verwarm de olie zachtjes in een pannetje op laag vuur.', en:'Gently warm the oil in a small pan over low heat.'},
+      {nl:'Voeg de chili toe en laat 2-3 minuten heel zachtjes trekken.', en:'Add the chili and let it steep very gently for 2-3 minutes.'},
+      {nl:'Laat afkoelen. Zeef eventueel voor een heldere chiliolie.', en:'Let cool. Strain if you want a clear chili oil.'},
+    ],
+  },
+  chili_honey_lemon: {
+    servings:{nl:'Voor 2 personen (± 100 ml)', en:'Serves 2 (± 100 ml)'},
+    ingredients:[
+      {nl:'2 eetlepels honing', en:'2 tablespoons honey'},
+      {nl:'1 rode chilipeper, fijngesneden', en:'1 red chili, finely sliced'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+    ],
+    steps:[
+      {nl:'Verwarm de honing en chili samen zachtjes in een pannetje.', en:'Gently warm the honey and chili together in a small pan.'},
+      {nl:'Haal van het vuur en roer het citroensap erdoor.', en:'Remove from heat and stir in the lemon juice.'},
+    ],
+  },
+  chili_garlic_oil: {
+    servings:{nl:'Voor 2 personen (± 75 g pasta)', en:'Serves 2 (± 75 g paste)'},
+    ingredients:[
+      {nl:'1-2 rode chilipepers, fijngehakt', en:'1-2 red chilies, finely chopped'},
+      {nl:'2 tenen knoflook, fijngehakt', en:'2 garlic cloves, finely chopped'},
+      {nl:'2 eetlepels olie', en:'2 tablespoons oil'},
+    ],
+    steps:[
+      {nl:'Hak chili en knoflook fijn, of mix ze samen kort in een keukenmachine.', en:'Finely chop the chili and garlic, or briefly blend together in a food processor.'},
+      {nl:'Meng met de olie tot een grove, pittige pasta.', en:'Mix with the oil into a coarse, spicy paste.'},
+    ],
+  },
+  chili_garlic_honey_lemon_oil: {
+    servings:{nl:'Voor 2 personen (± 100 ml) — eigen samenstelling, geen traditioneel recept', en:'Serves 2 (± 100 ml) — original creation, not a traditional recipe'},
+    ingredients:[
+      {nl:'2 eetlepels olie', en:'2 tablespoons oil'},
+      {nl:'1 rode chilipeper, fijngesneden', en:'1 red chili, finely sliced'},
+      {nl:'1 teen knoflook, fijngehakt', en:'1 garlic clove, finely chopped'},
+      {nl:'2 eetlepels honing', en:'2 tablespoons honey'},
+      {nl:'1 theelepel citroensap', en:'1 teaspoon lemon juice'},
+    ],
+    steps:[
+      {nl:'Verwarm de olie zachtjes en laat chili en knoflook er 1-2 minuten in sissen.', en:'Gently warm the oil and let the chili and garlic sizzle in it for 1-2 minutes.'},
+      {nl:'Voeg de honing toe en laat samen zachtjes warm worden, blijf roeren.', en:'Add the honey and let it warm through together, stirring continuously.'},
+      {nl:'Haal van het vuur en roer het citroensap erdoor zodra het iets is afgekoeld.', en:'Remove from heat and stir in the lemon juice once slightly cooled.'},
+    ],
+  },
 };
 
 /* ==========================================================
@@ -955,6 +1528,7 @@ function screenHome(){
       <button class="btn primary" id="btnStart">${resumable?t('btnResume'):t('btnStartGame')}</button>
       ${resumable?`<button class="btn ghost" id="btnReset" style="margin-top:8px">${t('btnResetHome')}</button>`:''}
     </div>
+    <div class="copyright">© 2026 Studio Dida. ${t('allRightsReserved')}</div>
   </main>`;
 }
 function langSwitcherDark(){
@@ -1104,8 +1678,19 @@ function screenBook(){
         ${tier.recipes.map(r=>{
           const found=S.products.has(r.id);
           const sig = r.signature ? ' style="border:2px solid #d89a48;background:#fff8e8"' : '';
+          const note = REAL_NOTES[r.id];
+          const full = FULL_RECIPES[r.id];
+          const fullBlock = full ? `
+            <details class="fullRecipe">
+              <summary>${t('viewFullRecipe')}</summary>
+              <div class="fullRecipeBody">
+                <div class="servings">${tr(full.servings)}</div>
+                <div class="ingList"><b>${t('ingredientsLabel')}</b><ul>${full.ingredients.map(i=>`<li>${tr(i)}</li>`).join('')}</ul></div>
+                <div class="stepList"><b>${t('stepsLabel')}</b><ol>${full.steps.map(s=>`<li>${tr(s)}</li>`).join('')}</ol></div>
+              </div>
+            </details>` : '';
           return found
-            ? `<div class="recipeRow"${sig}><span class="em">${r.emoji}</span><div><b>${r.signature?'⭐ ':''}${tr(r.product)}</b><small>${tr(TOOL_OF[r.act])}</small></div></div>`
+            ? `<div class="recipeRow"${sig}><span class="em">${r.emoji}</span><div style="flex:1"><b>${r.signature?'⭐ ':''}${tr(r.product)}</b><small>${tr(TOOL_OF[r.act])}</small>${note?`<div class="realNote">${t('inReality')} ${tr(note)}</div>`:''}${fullBlock}</div></div>`
             : `<div class="recipeRow locked"${sig}><span class="em">❔</span><div><b>${r.signature?t('signatureDish'):t('toDiscover')}</b><small>${t('ingredientsCount',{n:r.ids.length})}</small></div></div>`;
         }).join('')}
       </div>`;
