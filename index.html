@@ -448,6 +448,8 @@ const UI = {
   btnResume:{nl:'▶️ Verdergaan', en:'▶️ Continue'},
   btnStartGame:{nl:'🚀 Start Elementenlab', en:'🚀 Start Elements Lab'},
   btnResetHome:{nl:'🔄 Opnieuw beginnen', en:'🔄 Start Over'},
+  confirmReset:{nl:'Weet je zeker dat je opnieuw wilt beginnen? Al je voortgang gaat verloren.',
+                en:'Are you sure you want to start over? All your progress will be lost.'},
 
   roundLabel:{nl:'RONDE {n} / {total}', en:'ROUND {n} / {total}'},
   tipButton:{nl:'Tip {left}/3', en:'Hint {left}/3'},
@@ -624,6 +626,28 @@ function sndFanfare(){
 }
 function toggleMute(){ S.muted=!S.muted; save(); render(); }
 function setLang(lang){ if(S.lang===lang) return; S.lang=lang; save(); render(); }
+
+/* Safari/iOS staat geluid alleen toe als het start binnen een directe
+   tik/klik — niet binnen een sleepbeweging (zoals het kloppen/roeren-
+   gebaar afgeeft zodra de balk vol is). Daarom "ontgrendelen" we de
+   AudioContext al bij de allereerste tik ergens op het scherm: daarna
+   werkt geluid ook als het achteraf vanuit een sleepbeweging start. */
+function unlockAudioOnce(){
+  try{
+    const ctx = getAudioCtx();
+    if(ctx){
+      const buf = ctx.createBuffer(1,1,22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf; src.connect(ctx.destination); src.start(0);
+    }
+  }catch(e){}
+  document.removeEventListener('pointerdown', unlockAudioOnce, true);
+  document.removeEventListener('touchend', unlockAudioOnce, true);
+  document.removeEventListener('click', unlockAudioOnce, true);
+}
+document.addEventListener('pointerdown', unlockAudioOnce, true);
+document.addEventListener('touchend', unlockAudioOnce, true);
+document.addEventListener('click', unlockAudioOnce, true);
 
 /* ==========================================================
    3) SPELLOGICA
@@ -898,6 +922,7 @@ function header(showBack){
       <div style="display:flex;align-items:center;gap:8px">
         ${langSwitcher()}
         <button id="btnMute" style="border:0;background:#ffffff18;color:#fff;border-radius:12px;width:34px;height:34px;font-size:15px" type="button">${S.muted?'🔇':'🔊'}</button>
+        <button id="btnResetHeader" title="${t('btnResetHome')}" style="border:0;background:#ffffff18;color:#fff;border-radius:12px;width:34px;height:34px;font-size:14px" type="button">🔄</button>
       </div>
     </div>
     <div class="stats">
@@ -1132,6 +1157,7 @@ function wire(){
   on('btnReset2', resetGame);
   on('btnToBook', ()=>{ S.phase='book'; render(); });
   on('btnMute', toggleMute);
+  on('btnResetHeader', ()=>{ if(confirm(t('confirmReset'))) resetGame(); });
 
   q('[data-lang]').forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
 
